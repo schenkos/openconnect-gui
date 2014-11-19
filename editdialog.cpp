@@ -37,9 +37,15 @@ static int token_tab(int mode)
 }
 
 int token_rtab[] = {
+#if defined(__MINGW32__) && (__MINGW32_MAJOR_VERSION <= 3) && (__MINGW32_MINOR_VERSION <= 15)
+    OC_TOKEN_MODE_HOTP,
+    OC_TOKEN_MODE_TOTP,
+    OC_TOKEN_MODE_STOKEN
+#else
     [0] = OC_TOKEN_MODE_HOTP,
     [1] = OC_TOKEN_MODE_TOTP,
     [2] = OC_TOKEN_MODE_STOKEN
+#endif
 };
 
 EditDialog::EditDialog(QString server, QSettings *settings, QWidget *parent) :

@@ -23,7 +23,11 @@ extern "C" {
 #include <stdarg.h>
 #include <stdio.h>
 }
-#include <QtConcurrent/QtConcurrentRun>
+#if QT_VERSION >= 0x050000
+# include <QtConcurrent/QtConcurrentRun>
+#else
+# include <QtCore>
+#endif
 #include <QDateTime>
 #include <QMessageBox>
 #include <vpninfo.h>

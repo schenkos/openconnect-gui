@@ -178,7 +178,9 @@ public:
 	            ret = msgBox->exec();
 	            if (ret == QMessageBox::Help) {
 	            	QMessageBox helpBox;
+#if QT_VERSION >= 0x050000
 	            	helpBox.setTextInteractionFlags(Qt::TextSelectableByMouse|Qt::TextSelectableByKeyboard|Qt::LinksAccessibleByMouse);
+#endif
 	            	helpBox.setText(details);
 	            	helpBox.setTextFormat(Qt::PlainText);
 	            	helpBox.setStandardButtons(QMessageBox::Ok);

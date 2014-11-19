@@ -19,6 +19,8 @@
 
 #include <storage.h>
 #include <stdio.h>
+#include <cryptdata.h>
+
 StoredServer::~StoredServer(void)
 {
 
@@ -114,6 +116,15 @@ QString StoredServer::get_key_file()
     return File;
 }
 
+QString StoredServer::get_key_url()
+{
+    QString File;
+    if (this->client.key.is_ok()) {
+        this->client.key.get_url(File);
+    }
+    return File;
+}
+
 QString StoredServer::get_ca_cert_file()
 {
     QString File;
@@ -132,14 +143,19 @@ int StoredServer::set_ca_cert(QString filename)
 
 int StoredServer::set_client_cert(QString filename)
 {
-    int ret = this->client.import(filename);
+    int ret = this->client.import_cert(filename);
     this->last_err = this->client.last_err;
+
+    if (ret != 0 && this->client.key.is_ok() == false) {
+       ret = this->client.import_pfx(filename);
+       this->last_err = this->client.last_err;
+    }
     return ret;
 }
 
 int StoredServer::set_client_key(QString filename)
 {
-    int ret = this->client.import(filename);
+    int ret = this->client.import_key(filename);
     this->last_err = this->client.last_err;
     return ret;
 }
@@ -155,63 +171,10 @@ void StoredServer::get_server_hash(QString & hash)
     }
 }
 
-#if defined(_WIN32) && !defined(WINDOWS_XP_TOO)
-
-# include <dpapi.h>
-static QByteArray encode(QString txt, QString password)
-{
-    BOOL r;
-    DATA_BLOB DataIn;
-    DATA_BLOB Opt;
-    DATA_BLOB DataOut;
-    QByteArray res;
-
-    DataIn.pbData = password.toAscii().data();
-    DataIn.cbData = password.toAscii().size();
-
-    Opt.pbData = txt.toAscii().data();
-    Opt.cbData = txt.toAscii().size();
-
-    r = CryptProtectData(&DataIn, NULL, &Opt, NULL, NULL, 0, &DataOut);
-    if (r == false)
-        return res;
-
-    res.setRawData(DataOut.pbData, DataOut.cbData);
-    return res.toBase64();
-}
-
-static QString decode(QString txt, QByteArray _enc)
-{
-    BOOL r;
-    DATA_BLOB DataIn;
-    DATA_BLOB Opt;
-    DATA_BLOB DataOut;
-    QString res;
-
-    enc = QByteArray::fromBase64(_enc);
-
-    DataIn.pbData = enc.data();
-    DataIn.cbData = enc.size();
-
-    Opt.pbData = txt.toAscii().data();
-    Opt.cbData = txt.toAscii().size();
-
-    r = CryptUnprotectData(&DataIn, NULL, &Opt, NULL, NULL, 0, &DataOut);
-    if (r == false)
-        return res;
-
-    res.fromLocal8Bit(DataOut.pbData, DataOut.cbData);
-    return res;
-}
-
-#else
-# define encode(x,y) y
-# define decode(x,y) y
-#endif
-
 int StoredServer::load(QString &name)
 {
     QByteArray data;
+    QString str;
 
     this->label = name;
     settings->beginGroup(PREFIX+name);
@@ -228,7 +191,7 @@ int StoredServer::load(QString &name)
 
     if (this->batch_mode == true) {
         this->groupname = settings->value("groupname").toString();
-        this->password = decode(this->servername, settings->value("password").toString());
+        this->password = CryptData::decode(this->servername, settings->value("password").toString());
     }
 
     data = settings->value("ca-cert").toByteArray();
@@ -238,7 +201,12 @@ int StoredServer::load(QString &name)
     this->client.cert.import(data);
 
     data = settings->value("client-key").toByteArray();
-    this->client.key.import(data);
+    str = data;
+    if (is_url(str) == true) {
+        this->client.key.import(str);
+    } else {
+        this->client.key.import(data);
+    }
 
     this->server_hash = settings->value("server-hash").toByteArray();
     this->server_hash_algo = settings->value("server-hash-algo").toInt();
@@ -263,10 +231,8 @@ int StoredServer::save()
     settings->setValue("minimize-on-connect", this->minimize_on_connect);
     settings->setValue("username", this->username);
 
-
-
     if (this->batch_mode == true) {
-        settings->setValue("password", encode(this->servername, this->password));
+        settings->setValue("password", CryptData::encode(this->servername, this->password));
         settings->setValue("groupname", this->groupname);
     }
 

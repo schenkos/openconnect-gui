@@ -23,6 +23,9 @@
 #if defined(_WIN32)
 #include <windows.h>
 #include <winbase.h>
+#ifdef __MINGW32__
+# include <wincrypt.h>
+#endif
 
 typedef WINBOOL (WINAPI *CryptProtectDataFunc) (DATA_BLOB *pDataIn, LPCWSTR szDataDescr, DATA_BLOB *pOptionalEntropy, PVOID pvReserved, CRYPTPROTECT_PROMPTSTRUCT *pPromptStruct, DWORD dwFlags, DATA_BLOB *pDataOut);
 typedef WINBOOL (WINAPI *CryptUnprotectDataFunc) (DATA_BLOB *pDataIn, LPWSTR *ppszDataDescr, DATA_BLOB *pOptionalEntropy, PVOID pvReserved, CRYPTPROTECT_PROMPTSTRUCT *pPromptStruct, DWORD dwFlags, DATA_BLOB *pDataOut);

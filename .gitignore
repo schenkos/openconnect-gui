@@ -10,3 +10,5 @@ qconnect
 *.Debug
 *.Release
 *.user
+release/
+debug/

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Red Hat
+ * Copyright (C) 2014, 2015 Red Hat
  *
  * This file is part of openconnect-gui.
  *
@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 
 #include "key.h"
 #include <QTemporaryFile>
@@ -43,7 +42,8 @@ void Key::clear()
     }
 }
 
-static int import_Key(QWidget *w, gnutls_x509_privkey_t *privkey, gnutls_datum_t *raw)
+static int import_Key(QWidget * w, gnutls_x509_privkey_t * privkey,
+                      gnutls_datum_t * raw)
 {
     int ret;
 
@@ -52,23 +52,30 @@ static int import_Key(QWidget *w, gnutls_x509_privkey_t *privkey, gnutls_datum_t
 
     gnutls_x509_privkey_init(privkey);
 
-    ret = gnutls_x509_privkey_import2(*privkey, raw, GNUTLS_X509_FMT_PEM, NULL, 0);
+    ret =
+        gnutls_x509_privkey_import2(*privkey, raw, GNUTLS_X509_FMT_PEM, NULL,
+                                    0);
     if (ret == GNUTLS_E_DECRYPTION_FAILED && w != NULL) {
         bool ok;
         QString text;
-        MyInputDialog dialog(w, QLatin1String("This file requires a password"), QLatin1String("Please enter your password"), QLineEdit::Password);
-
-        dialog.show();
-        ok = dialog.result(text);
+        text =
+            QInputDialog::getText(w,
+                                  QLatin1String
+                                  ("This file requires a password"),
+                                  QLatin1String("Please enter your password"),
+                                  QLineEdit::Password, QString(), &ok);
         if (!ok) {
             ret = -1;
             goto fail;
         }
 
-        ret = gnutls_x509_privkey_import2(*privkey, raw, GNUTLS_X509_FMT_PEM, text.toAscii().data(), 0);
+        ret =
+            gnutls_x509_privkey_import2(*privkey, raw, GNUTLS_X509_FMT_PEM,
+                                        text.toAscii().data(), 0);
     }
 
-    if (ret == GNUTLS_E_BASE64_DECODING_ERROR || ret == GNUTLS_E_BASE64_UNEXPECTED_HEADER_ERROR)
+    if (ret == GNUTLS_E_BASE64_DECODING_ERROR
+        || ret == GNUTLS_E_BASE64_UNEXPECTED_HEADER_ERROR)
         ret = gnutls_x509_privkey_import(*privkey, raw, GNUTLS_X509_FMT_DER);
     if (ret < 0) {
         goto fail;
@@ -81,12 +88,12 @@ static int import_Key(QWidget *w, gnutls_x509_privkey_t *privkey, gnutls_datum_t
     return ret;
 }
 
-int Key::import_pem(QByteArray &data)
+int Key::import_pem(QByteArray & data)
 {
     int ret;
     gnutls_datum_t raw;
 
-    raw.data = (unsigned char*)data.constData();
+    raw.data = (unsigned char *)data.constData();
     raw.size = data.size();
 
     ret = import_Key(this->w, &this->privkey, &raw);
@@ -98,7 +105,7 @@ int Key::import_pem(QByteArray &data)
     return 0;
 }
 
-int Key::data_export(QByteArray &data)
+int Key::data_export(QByteArray & data)
 {
     int ret;
     gnutls_datum_t raw;
@@ -120,15 +127,15 @@ int Key::data_export(QByteArray &data)
         return -1;
     }
 
-    data = QByteArray((char*)raw.data, raw.size);
+    data = QByteArray((char *)raw.data, raw.size);
     gnutls_free(raw.data);
     return 0;
 }
 
-int Key::import_file(QString &File)
+int Key::import_file(QString & File)
 {
     int ret;
-    gnutls_datum_t contents = {NULL, 0};
+    gnutls_datum_t contents = { NULL, 0 };
 
     if (File.isEmpty() == true)
         return -1;
@@ -160,7 +167,7 @@ int Key::import_file(QString &File)
     return 0;
 }
 
-int Key::tmpfile_export(QString &filename)
+int Key::tmpfile_export(QString & filename)
 {
     int ret;
     gnutls_datum_t out;
@@ -185,7 +192,7 @@ int Key::tmpfile_export(QString &filename)
         return -1;
     }
 
-    qa.append((const char*)out.data, out.size);
+    qa.append((const char *)out.data, out.size);
     gnutls_free(out.data);
 
     tmpfile.open();

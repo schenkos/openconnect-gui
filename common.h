@@ -23,7 +23,7 @@
 #include <iostream>
 #include <QTranslator>
 
-#define VERSION "0.9"
+#define VERSION "1.3"
 #define APP_NAME "openconnect-gui"
 #define APP_STRING APP_NAME" "VERSION
 
@@ -40,36 +40,42 @@
 #define CONNECTING_ICON QPixmap(QString::fromLatin1(":/new/resource/traffic_light_yellow.png"))
 #define CONNECTING_ICON2 QPixmap(QString::fromLatin1(":/new/resource/traffic_light_off.png"))
 
+#define TRAY_OFF_ICON QPixmap(QString::fromLatin1(":/new/resource/network-disconnected.png"))
+#define TRAY_ON_ICON QPixmap(QString::fromLatin1(":/new/resource/network-connected.png"))
+
 #define UPDATE_TIMER 10000
 
 #ifdef _WIN32
-# define DEFAULT_VPNC_SCRIPT "vpnc-script-win.js"
-# define net_errno WSAGetLastError()
-# define ms_sleep Sleep
+#define DEFAULT_VPNC_SCRIPT "vpnc-script.js"
+#define net_errno WSAGetLastError()
+#define ms_sleep Sleep
 #else
-# include <unistd.h>
-# include <fcntl.h>
-# include <errno.h>
-# define ms_sleep(x) usleep(1000*x)
-# define DEFAULT_VPNC_SCRIPT "/etc/vpnc/vpnc-script"
-# define INVALID_SOCKET -1
-# define SOCKET int
-# define closesocket close
-# define net_errno errno
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+#define ms_sleep(x) usleep(1000*x)
+#define DEFAULT_VPNC_SCRIPT "/etc/vpnc/vpnc-script"
+#define INVALID_SOCKET -1
+#define SOCKET int
+#define closesocket close
+#define net_errno errno
 #endif
 
+#include <gnutls/gnutls.h>
+
+#if !defined(__MACH__) && GNUTLS_VERSION_NUMBER >= 0x030400
 #define USE_SYSTEM_KEYS
+#endif
 
 #include <QString>
 
-inline bool is_url(QString &str)
+inline bool is_url(QString & str)
 {
     if (str.startsWith("system:") ||
-        str.startsWith("pkcs11:") ||
-        str.startsWith("system:")) {
-            return true;
+        str.startsWith("pkcs11:") || str.startsWith("system:")) {
+        return true;
     }
     return false;
 }
 
-#endif // COMMON_H
+#endif                          // COMMON_H

@@ -26,14 +26,15 @@ StoredServer::~StoredServer(void)
 
 }
 
-StoredServer::StoredServer(QSettings *settings)
+StoredServer::StoredServer(QSettings * settings)
 {
     this->server_hash_algo = 0;
     this->settings = settings;
+    set_window(NULL);
 };
 
 #define PREFIX "server:"
-QStringList get_server_list(QSettings *settings)
+QStringList get_server_list(QSettings * settings)
 {
     QStringList keys = settings->allKeys();
     QString str;
@@ -43,15 +44,15 @@ QStringList get_server_list(QSettings *settings)
     for (int i = 0; i < keys.size(); i++) {
         if (keys.at(i).startsWith(PREFIX) && keys.at(i).endsWith("/server")) {
             str = keys.at(i);
-            str.remove(0, sizeof(PREFIX)-1); /* remove prefix */
-            str.remove(str.size()-7, 7); /* remove /server suffix */
+            str.remove(0, sizeof(PREFIX) - 1);  /* remove prefix */
+            str.remove(str.size() - 7, 7);      /* remove /server suffix */
             res.append(str);
-         }
+        }
     }
     return res;
 }
 
-void remove_server(QSettings *settings, QString server)
+void remove_server(QSettings * settings, QString server)
 {
     QStringList keys = settings->allKeys();
     QString str;
@@ -59,9 +60,9 @@ void remove_server(QSettings *settings, QString server)
     QString prefix = PREFIX;
 
     for (int i = 0; i < keys.size(); i++) {
-        if (keys.at(i).startsWith(prefix+server)) {
+        if (keys.at(i).startsWith(prefix + server)) {
             settings->remove(keys.at(i));
-         }
+        }
     }
     return;
 }
@@ -146,9 +147,9 @@ int StoredServer::set_client_cert(QString filename)
     int ret = this->client.import_cert(filename);
     this->last_err = this->client.last_err;
 
-    if (ret != 0 && this->client.key.is_ok() == false) {
-       ret = this->client.import_pfx(filename);
-       this->last_err = this->client.last_err;
+    if (ret != 0) {
+        ret = this->client.import_pfx(filename);
+        this->last_err = this->client.last_err;
     }
     return ret;
 }
@@ -165,13 +166,15 @@ void StoredServer::get_server_hash(QString & hash)
     if (this->server_hash_algo == 0) {
         hash = "";
     } else {
-        hash = gnutls_mac_get_name((gnutls_mac_algorithm_t)this->server_hash_algo);
+        hash =
+            gnutls_mac_get_name((gnutls_mac_algorithm_t)
+                                this->server_hash_algo);
         hash += ":";
         hash += this->server_hash.toHex();
     }
 }
 
-int StoredServer::load(QString &name)
+int StoredServer::load(QString & name)
 {
     QByteArray data;
     QString str;
@@ -179,7 +182,7 @@ int StoredServer::load(QString &name)
     int rval = 0;
 
     this->label = name;
-    settings->beginGroup(PREFIX+name);
+    settings->beginGroup(PREFIX + name);
 
     this->servername = settings->value("server").toString();
     if (this->servername.isEmpty() == true)
@@ -193,7 +196,10 @@ int StoredServer::load(QString &name)
 
     if (this->batch_mode == true) {
         this->groupname = settings->value("groupname").toString();
-        ret = CryptData::decode(this->servername, settings->value("password").toByteArray(), this->password);
+        ret =
+            CryptData::decode(this->servername,
+                              settings->value("password").toByteArray(),
+                              this->password);
         if (ret == false)
             rval = -1;
     }
@@ -210,7 +216,9 @@ int StoredServer::load(QString &name)
         rval = -1;
     }
 
-    ret = CryptData::decode(this->servername, settings->value("client-key").toByteArray(), str);
+    ret =
+        CryptData::decode(this->servername,
+                          settings->value("client-key").toByteArray(), str);
     if (ret == false)
         rval = -1;
 
@@ -224,7 +232,10 @@ int StoredServer::load(QString &name)
     this->server_hash = settings->value("server-hash").toByteArray();
     this->server_hash_algo = settings->value("server-hash-algo").toInt();
 
-    ret = CryptData::decode(this->servername, settings->value("token-str").toByteArray(), this->token_str);
+    ret =
+        CryptData::decode(this->servername,
+                          settings->value("token-str").toByteArray(),
+                          this->token_str);
     if (ret == false)
         rval = -1;
 
@@ -240,7 +251,7 @@ int StoredServer::save()
     QString str;
     QByteArray data;
 
-    settings->beginGroup(PREFIX+this->label);
+    settings->beginGroup(PREFIX + this->label);
     settings->setValue("server", this->servername);
     settings->setValue("batch", this->batch_mode);
     settings->setValue("proxy", this->proxy);
@@ -249,7 +260,8 @@ int StoredServer::save()
     settings->setValue("username", this->username);
 
     if (this->batch_mode == true) {
-        settings->setValue("password", CryptData::encode(this->servername, this->password));
+        settings->setValue("password",
+                           CryptData::encode(this->servername, this->password));
         settings->setValue("groupname", this->groupname);
     }
 
@@ -266,10 +278,10 @@ int StoredServer::save()
     settings->setValue("server-hash", this->server_hash);
     settings->setValue("server-hash-algo", this->server_hash_algo);
 
-    settings->setValue("token-str", CryptData::encode(this->servername, this->token_str));
+    settings->setValue("token-str",
+                       CryptData::encode(this->servername, this->token_str));
     settings->setValue("token-type", this->token_type);
 
     settings->endGroup();
     return 0;
 }
-

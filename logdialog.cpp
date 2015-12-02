@@ -17,15 +17,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 #include "logdialog.h"
 #include "ui_logdialog.h"
 #include <QClipboard>
 #include <QMessageBox>
 
-LogDialog::LogDialog(QStringList items, QWidget *parent) :
-    QDialog(parent),
-    ui(new Ui::LogDialog)
+ LogDialog::LogDialog(QStringList items, QWidget * parent):
+QDialog(parent), ui(new Ui::LogDialog)
 {
     ui->setupUi(this);
     this->text = items;

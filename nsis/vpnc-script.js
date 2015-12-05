@@ -10,6 +10,8 @@
 var fs = WScript.CreateObject("Scripting.FileSystemObject");
 var tmpdir = fs.GetSpecialFolder(2)+"\\";
 var log = fs.OpenTextFile(tmpdir + "vpnc.log", 8, true);
+var hasPowerShell_result;
+var hasPSModuleNetTCPIP_result;
 
 function echo(msg)
 {
@@ -59,6 +61,37 @@ function waitForInterface() {
 	return false;
 }
 
+function hasPowerShell() {
+	return false;
+	if (hasPowerShell_result === undefined) {
+		hasPowerShell_result = false;
+		if (exec("where powershell | find /c /i \"powershell\"").match(1)) {
+			hasPowerShell_result = true;
+		}
+	}
+	return hasPowerShell_result;
+}
+
+function hasPSModuleNetTCPIP() {
+	if (hasPSModuleNetTCPIP_result === undefined) {
+		hasPSModuleNetTCPIP_result = false;
+		if (hasPowerShell()) {
+			if (exec("powershell -Command \"& { $moduleNetTCPIP = Get-Module -Name \"NetTCPIP\" -ListAvailable ; If ($moduleNetTCPIP) { Write-Output \"1\" } }\"").match(1)) {
+				hasPSModuleNetTCPIP_result = true;
+			}
+		}
+	}
+	return hasPSModuleNetTCPIP_result;
+}
+
+function getTunDevId($tunDevName) {
+	if (hasPSModuleNetTCPIP())
+	{
+		return exec("powershell -Command \"& { $tunDevName = \\\"" + $tunDevName + "\\\" ; Import-Module -Name \"NetTCPIP\" ; $tunDevId = Get-NetIPInterface -InterfaceAlias $tunDevName -AddressFamily IPv4 | % { $_.ifIndex } ; Write-Output $tunDevId }\"").replace(/[\n\r]/g, '');
+	}
+	return $tunDevName;
+}
+
 // --------------------------------------------------------------
 // Script starts here
 // --------------------------------------------------------------
@@ -89,23 +122,25 @@ case "connect":
 		(address_array[3] & netmask_array[3]) + 1
 	);
 	var internal_gw = internal_gw_array.join(".");
+	var tundev_id = getTunDevId(env("TUNDEV"));
 	
 	echo("VPN Gateway: " + env("VPNGATEWAY"));
 	echo("Internal Address: " + env("INTERNAL_IP4_ADDRESS"));
 	echo("Internal Netmask: " + env("INTERNAL_IP4_NETMASK"));
 	echo("Internal Gateway: " + internal_gw);
 	echo("Interface: \"" + env("TUNDEV") + "\"");
-
+	echo("Interface Id: " + tundev_id);
+	
 	// Add direct route for the VPN gateway to avoid routing loops
 	exec("route add " + env("VPNGATEWAY") +
             " mask 255.255.255.255 " + gw);
 
 	if (env("INTERNAL_IP4_MTU")) {
 	    echo("MTU: " + env("INTERNAL_IP4_MTU"));
-	    exec("netsh interface ipv4 set subinterface \"" + env("TUNDEV") +
+	    exec("netsh interface ipv4 set subinterface \"" + tundev_id +
 		"\" mtu=" + env("INTERNAL_IP4_MTU") + " store=active");
 	    if (env("INTERNAL_IP6_ADDRESS")) {
-		exec("netsh interface ipv6 set subinterface \"" + env("TUNDEV") +
+		exec("netsh interface ipv6 set subinterface \"" + tundev_id +
 		    "\" mtu=" + env("INTERNAL_IP4_MTU") + " store=active");
 	    }
 	}
@@ -114,15 +149,15 @@ case "connect":
 	
 	if (!env("CISCO_SPLIT_INC") && REDIRECT_GATEWAY_METHOD != 2) {
 		// Interface metric must be set to 1 in order to add a route with metric 1 since Windows Vista
-		exec("netsh interface ip set interface \"" + env("TUNDEV") + "\" metric=1");
+		exec("netsh interface ip set interface \"" + tundev_id + "\" metric=1");
 	}
 	
 	if (env("CISCO_SPLIT_INC") || REDIRECT_GATEWAY_METHOD > 0) {
-		exec("netsh interface ip set address \"" + env("TUNDEV") + "\" static " +
+		exec("netsh interface ip set address \"" + tundev_id + "\" static " +
 			env("INTERNAL_IP4_ADDRESS") + " " + env("INTERNAL_IP4_NETMASK"));
 	} else {
 		// The default route will be added automatically
-		exec("netsh interface ip set address \"" + env("TUNDEV") + "\" static " +
+		exec("netsh interface ip set address \"" + tundev_id + "\" static " +
 			env("INTERNAL_IP4_ADDRESS") + " " + env("INTERNAL_IP4_NETMASK") + " " + internal_gw + " 1");
 	}
 
@@ -130,7 +165,7 @@ case "connect":
 		var wins = env("INTERNAL_IP4_NBNS").split(/ /);
 		for (var i = 0; i < wins.length; i++) {
 	                exec("netsh interface ip add wins \"" +
-			    env("TUNDEV") + "\" " + wins[i]
+			    tundev_id + "\" " + wins[i]
 			    + " index=" + (i+1));
 		}
 	}
@@ -139,7 +174,7 @@ case "connect":
 		var dns = env("INTERNAL_IP4_DNS").split(/ /);
 		for (var i = 0; i < dns.length; i++) {
 	                exec("netsh interface ip add dns \"" +
-			    env("TUNDEV") + "\" " + dns[i]
+			    tundev_id + "\" " + dns[i]
 			    + " index=" + (i+1));
 		}
 	}
@@ -179,7 +214,7 @@ case "connect":
         if (env("INTERNAL_IP6_ADDRESS")) {
 		echo("Configuring \"" + env("TUNDEV") + "\" interface for IPv6...");
 
-		exec("netsh interface ipv6 set address \"" + env("TUNDEV") + "\" " +
+		exec("netsh interface ipv6 set address \"" + tundev_id + "\" " +
 		    env("INTERNAL_IP6_ADDRESS") + " store=active");
 
 		echo("done.");
@@ -188,7 +223,7 @@ case "connect":
 	        echo("Configuring Legacy IP networks:");
 	        if (env("INTERNAL_IP6_NETMASK") && !env("INTERNAL_IP6_NETMASK").match("/128$")) {
 			exec("netsh interface ipv6 add route " + env("INTERNAL_IP6_NETMASK") +
-			    " \"" + env("TUNDEV") + "\" fe80::8 store=active");
+			    " \"" + tundev_id + "\" fe80::8 store=active");
 		}
 
 	        if (env("CISCO_IPV6_SPLIT_INC")) {
@@ -197,11 +232,11 @@ case "connect":
 				var netmasklen = env("CISCO_SPLIT_INC_" + i +
 						 "_MASKLEN");
 				exec("netsh interface ipv6 add route " + network + "/" +
-				    netmasklen + " \"" + env("TUNDEV") + "\" fe80::8 store=active");
+				    netmasklen + " \"" + tundev_id + "\" fe80::8 store=active");
 			}
 		} else {
 			echo("Setting default IPv6 route through VPN.");
-			exec("netsh interface ipv6 add route 2000::/3 \"" + env("TUNDEV") +
+			exec("netsh interface ipv6 add route 2000::/3 \"" + tundev_id +
 			    "\" fe80::8 store=active");
 		}
 		echo("IPv6 route configuration done.");
